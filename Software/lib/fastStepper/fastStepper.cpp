@@ -12,10 +12,11 @@ To view a copy of this license, visit http://creativecommons.org/licenses/by-sa/
 
 #include "fastStepper.h"
 
-fastStepper::fastStepper(uint8_t stepPin, uint8_t dirPin, uint8_t timerNo, void (*f)()) {
+fastStepper::fastStepper(uint8_t stepPin, uint8_t dirPin, uint8_t timerNo, void (*f)(), boolean inverseDir) {
   _stepPin = stepPin;
   _dirPin = dirPin;
   _timerNo = timerNo;
+  _inverseDir = inverseDir;
   timerFun = f;
 }
 
@@ -65,7 +66,7 @@ void fastStepper::update() {
 
   // Only update dir pin if changed (it doesn't change very often)
   if (dir != lastDir) {
-    digitalWrite(_dirPin, dir==1 ? 1 : 0);
+    digitalWrite(_dirPin, ((dir==1) ^ _inverseDir) ? 1 : 0);
   }
 
   if (lastSpeed!=speed) {

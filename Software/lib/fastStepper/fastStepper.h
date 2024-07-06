@@ -19,7 +19,7 @@ extern portMUX_TYPE timerMux;
 
 class fastStepper {
 public:
-  fastStepper(uint8_t stepPin, uint8_t dirPin, uint8_t timerNo, void (*f)());
+  fastStepper(uint8_t stepPin, uint8_t dirPin, uint8_t timerNo, void (*f)(), boolean inverseDir = false);
   void timerFunction();
   void init();
   void update();
@@ -28,7 +28,6 @@ public:
 
   float speed = 0;
   float maxSpeed = 3000;
-
   uint8_t microStep;
 private:
   void (*timerFun)();
@@ -37,6 +36,7 @@ private:
   volatile int8_t dir = 1;
   uint8_t _stepPin;
   uint8_t _dirPin;
+  boolean _inverseDir;
   hw_timer_t* _timer;
   uint8_t _timerNo;
   float lastSpeed = 0.0;

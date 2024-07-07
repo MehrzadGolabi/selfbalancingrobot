@@ -12,6 +12,8 @@ A Self Balancing Robot based on ESP32 module
 تیر 1403
 ![image](https://github.com/MehrzadGolabi/selfbalancingrobot/blob/main/Pasted%20image%2020240707054357.png)
 
+![image2](https://github.com/MehrzadGolabi/selfbalancingrobot/blob/main/Pasted%20image%2020240707054359.png)
+
 
 قابلیت ها:
 

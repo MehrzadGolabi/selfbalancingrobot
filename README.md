@@ -10,7 +10,7 @@ A Self Balancing Robot based on ESP32 module
 امیرحسین باباپور، علیرضا صادقی، مهرزاد گلابی، محمد هراتی زاده
 
 تیر 1403
-![image]([http://url/to/img.png](https://github.com/MehrzadGolabi/selfbalancingrobot/blob/main/Pasted%20image%2020240707054357.png))
+![image](https://github.com/MehrzadGolabi/selfbalancingrobot/blob/main/Pasted%20image%2020240707054357.png)
 
 
 قابلیت ها:

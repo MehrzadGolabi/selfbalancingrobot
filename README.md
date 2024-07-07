@@ -1,16 +1,20 @@
 # selfbalancingrobot
 A Self Balancing Robot based on ESP32 module
+
 پروژه درس سیستم های دیجیتال 2
 
 ربات تعادلی
 
-**اعضای گروه****:
+**اعضای گروه**:
 
 امیرحسین باباپور، علیرضا صادقی، مهرزاد گلابی، محمد هراتی زاده
 
-تیر 1403
+![image](https://github.com/MehrzadGolabi/selfbalancingrobot/blob/main/Pasted%20image%2020240707054357.png)
 
-![[Pasted image 20240707054357.png]]![[Pasted image 20240707054359.png]]![[Pasted image 20240707054407.png]]قابلیت ها:
+![image2](https://github.com/MehrzadGolabi/selfbalancingrobot/blob/main/Pasted%20image%2020240707054359.png)
+
+
+قابلیت ها:
 
 _·_         _حفظ تعادل و مقاومت در برابر اغتشاشات کوچک_
 

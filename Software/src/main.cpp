@@ -30,19 +30,6 @@ float steerFactor = 1.0;  // how strong it reacts to inputs, lower = softer (lim
 float speedFilterConstant = 0.9;  // how fast it reacts to inputs, higher = softer (between 0 and 1, but not 0 or 1)
 float steerFilterConstant = 0.9;  // how fast it reacts to inputs, higher = softer (between 0 and 1, but not 0 or 1)
 
-// PPM (called CPPM, PPM-SUM) signal containing 8 RC-Channels in 1 PIN ("RX" on board)
-// Channel 1 = steer, Channel 2 = speed
-// #define INPUT_PPM
-// #define PPM_PIN 16  // GPIO-Number
-// #define minPPM 990  // minimum PPM-Value (Stick down)
-// #define maxPPM 2015  // maximum PPM-Value (Stick up)
-
-// FlySkyIBus signal containing 8 RC-Channels in 1 PIN ("RX" on board)
-#define INPUT_IBUS
-
-// #define INPUT_PS3 // PS3 controller via bluetooth. Dependencies take up quite some program space!
-
-// #define STEPPER_DRIVER_A4988 // Use A4988 stepper driver, which uses different microstepping settings
 
 // ----- Type definitions
 typedef union {
@@ -73,9 +60,7 @@ struct {
 } plot;
 
 /* Remote control structure
-Every remote should give a speed and steer command from -100 ... 100
-To adjust "driving experience", e.g. a slow beginners mode, or a fast expert mode,
-a gain can be adjusted for the speed and steer inputs.
+To adjust "driving experience" a gain can be adjusted for the speed and steer inputs.
 Additionaly, a selfRight input can be used. When setting this bit to 1,
 the robot will enable control in an attempt to self right.
 The override input can be used to control the robot when it is lying flat.
@@ -109,11 +94,6 @@ void initSensor(uint8_t n);
 void setMicroStep(uint8_t uStep);
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length);
 void sendConfigurationData(uint8_t num);
-#ifdef INPUT_PS3
-  void onPs3Notify();
-  void onPs3Connect();
-  void onPs3Disconnect();
-#endif
 
 void IRAM_ATTR motLeftTimerFunction();
 void IRAM_ATTR motRightTimerFunction();
@@ -193,7 +173,6 @@ float rxg, ayg, azg;
 esp_adc_cal_characteristics_t adc_chars;
 
 // -- WiFi
-// const char host[] = "balancingrobot";
 #define ROBOT_NAME_DEFAULT "balancingrobot"
 char robotName[63] = ROBOT_NAME_DEFAULT;
 
@@ -277,51 +256,12 @@ void printProgress(size_t prg, size_t sz) {
   Serial.printf("Progress: %d%%\n", (prg*100)/content_len);
 }
 
-// -- PPM Input
-#ifdef INPUT_PPM
-volatile int interruptCounter = 0;
-int numberOfInterrupts = 0;
-
-// portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
-
-//Array in which the channel values are stored
-volatile int32_t rxData[] = {0,0,0,0,0,0,0,0};
-//int in which the time difference to the last pulse is stored
-volatile uint32_t rxPre = 1;
-//int in which the current channel number to read out is stored
-volatile uint8_t channelNr = 0;
-//indicates if the data in the channel value array are reliable e.g. there have been two sync breaks, so in the array there are only "real" values synced to the correspondinc channel number
-volatile uint8_t firstRoundCounter = 2;
-volatile boolean firstRoundPassed = false;
-volatile boolean validRxValues = false;
-
-void rxFalling() {  // will be called when the ppm peak is over
-  if(micros()-rxPre > 6000) {  // if the current peak is the first peak after the syncro break of 10ms
-    rxPre = micros();
-    channelNr = 0;  // reset the channel number to syncronize again
-    firstRoundCounter--;//the values in the first round are complete rubish, since there would'nt have been a first channel sync, this var indicates for the other functions, if the values are reliable
-    if(firstRoundCounter == 0) firstRoundPassed = true;
-  }
-  else {
-    rxData[channelNr] = micros()-rxPre;
-    rxPre = micros();
-    channelNr++;
-  }
-  if(!validRxValues) {
-    if(firstRoundPassed) {
-        validRxValues = true;
-    }
-  }
-}
-#endif
 
 // ----- Main code
 void setup() {
 
   Serial.begin(115200);
-  #ifdef INPUT_IBUS
-  IBus.begin(Serial2);
-  #endif
+
   preferences.begin("settings", false);  // false = RW-mode
   // preferences.clear();  // Remove all preferences under the opened namespace
 
@@ -388,10 +328,7 @@ void setup() {
 
   // Read robot name
   uint32_t len = preferences.getBytes("robot_name", robotName, 63);
-  // strcpy(robotName, ROBOT_NAME_DEFAULT);
-  // preferences.putBytes("robot_name", robotName, 63);
 
-  // if (len==0) preferences.putBytes("robot_name", host, 63);
   Serial.println(robotName);
 
   // Connect to Wifi and setup OTA if known Wifi network cannot be found
@@ -441,7 +378,6 @@ void setup() {
         type = "filesystem";
       }
 
-      // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
       Serial.println("Start updating " + type);
     })
     .onEnd([]() {
@@ -517,39 +453,6 @@ void setup() {
   pidPos.setParameters(1,0,1.2,50);
   pidSpeed.setParameters(6,5,0,20);
 
-  // pidParList.read();
-
-  // PPM
-  #ifdef INPUT_PPM
-  pinMode(PPM_PIN, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(PPM_PIN), rxFalling, FALLING);
-  #endif
-
-  // Run wireless related tasks on core 0
-  // xTaskCreatePinnedToCore(
-  //                   wirelessTask,   /* Function to implement the task */
-  //                   "wirelessTask", /* Name of the task */
-  //                   10000,      /* Stack size in words */
-  //                   NULL,       /* Task input parameter */
-  //                   0,          /* Priority of the task */
-  //                   NULL,       /* Task handle. */
-  //                   0);  /* Core where the task should run */
-
-
-  // Setup PS3 controller
-  #ifdef INPUT_PS3
-  // Ps3.begin("24:0a:c4:31:3d:86");
-  Ps3.attach(onPs3Notify);
-  Ps3.attachOnConnect(onPs3Connect);
-  Ps3.attachOnDisconnect(onPs3Disconnect);
-  Ps3.begin();
-  String address = Ps3.getAddress();
-  int bt_len = address.length() + 1;
-  address.toCharArray(BTaddress, bt_len);
-  Serial.print("Bluetooth MAC address: ");
-  Serial.println(address);
-  #endif
-
   Serial.println("Ready");
 
 
@@ -606,40 +509,7 @@ void loop() {
   if (tNow-tLast > dT_MICROSECONDS) {
     readSensor();
     // Read receiver inputs
-    #ifdef INPUT_IBUS
-    if (IBus.isActive()) { // Check if receiver is active
-      remoteControl.speed = ((float) IBus.readChannel(1)-1500)/5.0 * remoteControl.speedGain; // Normalise between -100 and 100
-      remoteControl.steer = ((float) IBus.readChannel(0)-1500)/5.0 * remoteControl.steerGain;
-
-      // Edge detection
-      bool selfRightInput = IBus.readChannel(3)>1600 && IBus.readChannel(3)<2100;
-      bool disableControlInput = IBus.readChannel(3)<1400 && IBus.readChannel(3)>900;
-      static bool lastSelfRightInput = 0, lastDisableControlInput = 0;
-
-      remoteControl.selfRight = selfRightInput && !lastSelfRightInput;
-      remoteControl.disableControl = disableControlInput && !lastDisableControlInput;
-
-      lastSelfRightInput = selfRightInput;
-      lastDisableControlInput = disableControlInput;
-
-      if (IBus.readChannel(4)>1600) {
-        overrideMode = 1;
-      } else if (IBus.readChannel(4)<1400 && IBus.readChannel(4)>900) {
-        overrideMode = 0;
-      }
-    }
-    #endif
-
-    #ifdef INPUT_PPM
-    if (rxData[1] == 0 || rxData[0] == 0) {  // no ppm signal (tx off || rx set to no signal in failsave || no reciever connected (use 100k pulldown))
-      remoteControl.speed = 0.0;
-      remoteControl.steer = 0.0;
-    } else {  // normal ppm signal
-      remoteControl.speed = mapfloat((float)constrain(rxData[1], minPPM, maxPPM), (float)minPPM, (float)maxPPM, -100.0, 100.0) * remoteControl.speedGain;  // Normalise between -100 and 100
-      remoteControl.steer = mapfloat((float)constrain(rxData[0], minPPM, maxPPM), (float)minPPM, (float)maxPPM, -100.0, 100.0) * remoteControl.steerGain;
-    }
-    #endif
-
+    
 
     if (remoteControl.selfRight && !enableControl) { // Start self-right action (stops when robot is upright)
       selfRight = 1;
@@ -657,10 +527,6 @@ void loop() {
 
     if (enableControl) {
       // Read receiver inputs
-
-
-      // uint8_t lastControlMode = controlMode;
-      // controlMode = (2000-IBus.readChannel(5))/450;
 
       if (abs(avgSpeed)<0.2) {
         // remoteControl.speed = 0;
@@ -743,11 +609,6 @@ void loop() {
       if (absSpeed > (150 * 32 / microStep) && microStep > 1) microStep /= 2;
       if (absSpeed < (130 * 32 / microStep) && microStep < 32) microStep *= 2;
 
-      // if (microStep!=lastMicroStep) {
-      //   motLeft.microStep = microStep;
-      //   motRight.microStep = microStep;
-      //   setMicroStep(microStep);
-      // }
 
       // Disable control if robot is almost horizontal. Re-enable if upright.
       if ((abs(filterAngle)>angleDisableThreshold && !selfRight) || disableControl) {
@@ -884,11 +745,7 @@ void loop() {
     }
     k++;
 
-    // Serial << IBus.isActive() << "\t";
-    // for (uint8_t i=0; i<6; i++) {
-    //   Serial << IBus.readChannel(i) << "\t";
-    // }
-    // Serial << remoteControl.speed << "\t"  << remoteControl.steer << "\t"  << remoteControl.selfRight << "\t"  << remoteControl.disableControl;
+    
     // Serial << filterAngle << "\t" << angleErrorIntegral << "\t" << enableControl << "\t" << disableControl << "\t" << selfRight << endl;
 
     // Serial << selfRight;
@@ -906,20 +763,9 @@ void loop() {
 
       // Run other tasks
     ArduinoOTA.handle();
-    #ifdef INPUT_IBUS
-    IBus.loop();
-    #endif
+    
     wsServer.loop();
 
-    // Handle PS3 controller
-    #ifdef INPUT_PS3
-    if(Ps3.isConnected()) {
-      // PS3 input range is -127 ... 127
-      remoteControl.speed = -1*Ps3.data.analog.stick.ry/1.27 * remoteControl.speedGain + remoteControl.speedOffset;
-      remoteControl.steer = Ps3.data.analog.stick.rx/1.27 * remoteControl.steerGain;
-      // Other PS3 inputs are read in a separate interrupt function
-    }
-    #endif
 
     // Serial << micros()-tNow << endl;
   }
@@ -1213,13 +1059,7 @@ void setMicroStep(uint8_t uStep) {
   digitalWrite(motUStepPin2, uStepPow&0x02);
   digitalWrite(motUStepPin3, uStepPow&0x04);
 
-#ifdef STEPPER_DRIVER_A4988 // The lookup table for uStepping of the 4988 writes for some reason all three pins high for 1/16th step
-  if (uStep==16) {
-    digitalWrite(motUStepPin1, 1); 
-    digitalWrite(motUStepPin2, 1); 
-    digitalWrite(motUStepPin3, 1); 
-  }  
-#endif
+
 }
 
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
@@ -1330,50 +1170,4 @@ void sendConfigurationData(uint8_t num) {
   wsServer.sendTXT(num, wBuf);
 }
 
-#ifdef INPUT_PS3
-void onPs3Notify() {
-  if (Ps3.event.button_down.down) {
-    remoteControl.speedGain = 0.05;
-    remoteControl.steerGain = 0.3;
-  }
-  if (Ps3.event.button_down.left) {
-    remoteControl.speedGain = 0.1;
-    remoteControl.steerGain = 0.6;
-  }
-  if (Ps3.event.button_down.up) {
-    remoteControl.speedGain = 0.2;
-    remoteControl.steerGain = 0.8;
-  }
-  if (Ps3.event.button_down.right) {
-    remoteControl.speedGain = 0.25;
-    remoteControl.steerGain = 1.0;
-  }
-  if (Ps3.event.button_down.circle)   remoteControl.selfRight = 1;
-  if (Ps3.event.button_down.cross)    remoteControl.disableControl = 1;
-  if (Ps3.event.button_down.square)   remoteControl.override = 1;
-  if (Ps3.event.button_down.r1) {
-    if (remoteControl.speedOffset < 20.0) {
-      remoteControl.speedOffset += 0.5;
-      }
-   }
-   if (Ps3.event.button_down.r2) {
-     if (remoteControl.speedOffset > -20.0) {
-       remoteControl.speedOffset -= 0.5;
-     }
-   }
-}
 
-void onPs3Connect() {
-  digitalWrite(PIN_LED, 1);
-  Serial.println("Bluetooth controller connected");
-}
-
-void onPs3Disconnect() {
-  digitalWrite(PIN_LED, 0);
-  Serial.println("Bluetooth controller disconnected");
-  remoteControl.speed = 0;
-  remoteControl.steer = 0;
-  remoteControl.speedGain = 1;
-  remoteControl.steerGain = 1;
-}
-#endif
